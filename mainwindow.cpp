@@ -4,11 +4,12 @@
 #include "ui_mainwindow.h"
 
 MainWindow::MainWindow(QWidget *parent) :
-    QMainWindow(parent),
-    ui(new Ui::MainWindow),
-    timer(new QTimer(this))
+    QMainWindow(parent), ui(new Ui::MainWindow)
 {
+    // UI
+
     ui->setupUi(this);
+
     {
         auto devices = QAudioDeviceInfo::availableDevices(QAudio::AudioInput);
         for (const auto& info: devices) {
@@ -21,6 +22,21 @@ MainWindow::MainWindow(QWidget *parent) :
             ui->comboBox_audioDeviceOutput->addItem(info.deviceName());
         }
     }
+
+    trayIcon = new QSystemTrayIcon(this);
+    connect(trayIcon, &QSystemTrayIcon::activated, this, [this](QSystemTrayIcon::ActivationReason reason) {
+        if (reason == QSystemTrayIcon::DoubleClick) {
+            show();
+            showNormal();
+            activateWindow();
+        }
+    });
+    setTrayIcon();
+    trayIcon->show();
+
+    // Timers
+
+    timer = new QTimer(this);
     connect(timer, &QTimer::timeout, this, &MainWindow::timerOnTimeout);
     timer->setSingleShot(false);
 
@@ -28,6 +44,8 @@ MainWindow::MainWindow(QWidget *parent) :
     watcherTimer->setSingleShot(false);
     connect(watcherTimer, &QTimer::timeout, this, [this]() {
         ui->label_timerTime->setText(QString::number(timer->remainingTime() / 1000));
+        if (mustPlaySound)
+            playSound();
     });
     watcherTimer->start(1000);
 
@@ -47,8 +65,24 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->comboBox_audioDeviceListener->setCurrentText(settings.value("ListenerAudioDevice").toString());
     ui->comboBox_audioDeviceOutput->setCurrentText(settings.value("OutputAudioDevice").toString());
     ui->doubleSpinBox_listenerVolumeThreshold->setValue(settings.value("ListenerVolumeThreshold", ui->doubleSpinBox_listenerVolumeThreshold->value()).toDouble());
-    ui->doubleSpinBox_timerDurationSeconds->setValue(settings.value("TimerDuration", ui->doubleSpinBox_timerDurationSeconds->value()).toDouble());
+    ui->doubleSpinBox_timerDurationSeconds->setValue(settings.value("TimerDuration", ui->doubleSpinBox_timerDurationSeconds->value()).toDouble()); // 00:11:20
     ui->doubleSpinBox_volume->setValue(settings.value("OutputAudioVolume", ui->doubleSpinBox_volume->value()).toDouble());
+
+    // Args check
+
+    auto args = QCoreApplication::arguments();
+    bool hide = false, start = false;
+    for (auto arg: args) {
+        arg = arg.mid(1);
+        if (arg == "hide")
+            hide = true;
+        else if (arg == "start")
+            start = true;
+    }
+    if (!hide)
+        show();
+    if (start)
+        startListening();
 }
 
 void MainWindow::on_pushButton_start_clicked()
@@ -58,6 +92,22 @@ void MainWindow::on_pushButton_start_clicked()
     } else {
         stopListening();
     }
+}
+
+void MainWindow::hideEvent(QHideEvent *event)
+{
+    if (event->spontaneous() && isVisible())
+        hide();
+}
+
+void MainWindow::onSystemResumed()
+{
+    mustPlaySound = true;
+}
+
+void MainWindow::setTrayIcon()
+{
+    trayIcon->setIcon(started ? QIcon(":/icon_enabled.png") : QIcon(":/icon_disabled.png"));
 }
 
 void MainWindow::startListening()
@@ -74,11 +124,8 @@ void MainWindow::startListening()
 
         if (!format.isValid())
             format = adi.preferredFormat();
-        if (!adi.isFormatSupported(format)) {
+        if (!adi.isFormatSupported(format))
             format = adi.nearestFormat(format);
-        }
-
-        qDebug() << format;
 
         audioInput = new QAudioInput(adi, format, this);
 
@@ -97,9 +144,6 @@ void MainWindow::startListening()
             ui->label_listenerState->setText(stateStr);
         });
 
-//        audioFile.setFileName("record.raw");
-//        audioFile.open(QIODevice::WriteOnly | QIODevice::Truncate);
-
         audioInput->setBufferSize(100000);
         audioInputDevice = audioInput->start();
         playSound();
@@ -108,10 +152,6 @@ void MainWindow::startListening()
             auto bytes = audioInputDevice->readAll();
             if (bytes.size() == 0)
                 return;
-//            qDebug() << "readyRead read " << bytes.size();
-//            qDebug() << bytes.toHex();
-//            audioFile.write(bytes);
-//            stopRecording();
             static const auto max_sample_value = std::pow(2, audioInput->format().sampleSize());
             static const auto max_sample_value_div2 = max_sample_value / 2;
             static const auto bytes_per_sample = audioInput->format().sampleSize() / 8;
@@ -126,16 +166,18 @@ void MainWindow::startListening()
                 auto volume = std::abs(a / max_sample_value_div2);
                 ui->label_listenerVolume->setText(QString::number(volume, 'f'));
                 if (volume > ui->doubleSpinBox_listenerVolumeThreshold->value()) {
-//                    qDebug() << "has sound! " << a << volume;
+//                    qDebug() << "sound detected! " << a << volume;
                     hasSound = true;
                     break;
                 }
             }
             if (hasSound) {
                 timer->start(ui->doubleSpinBox_timerDurationSeconds->value() * 1000);
+                mustPlaySound = false;
             }
         });
     }
+    setTrayIcon();
 }
 
 void MainWindow::timerOnTimeout()
@@ -148,12 +190,14 @@ void MainWindow::stopListening()
     if (!started)
         return;
     started = false;
+    mustPlaySound = false;
     timer->stop();
     audioInput->stop();
     audioInput->deleteLater();
     audioInput = nullptr;
     audioInputDevice = nullptr;
     ui->pushButton_start->setText("Start");
+    setTrayIcon();
 }
 
 void MainWindow::playSound()
@@ -165,7 +209,6 @@ void MainWindow::playSound()
             QAudioOutput* audio = new QAudioOutput(adi, adi.preferredFormat(), this);
             audio->setVolume(ui->doubleSpinBox_volume->value());
             connect(audio, &QAudioOutput::stateChanged, this, [audio, file](QAudio::State state) {
-                qDebug() << state;
                 switch (state) {
                 case QAudio::IdleState:
                     audio->stop();
@@ -186,6 +229,8 @@ void MainWindow::playSound()
             file->deleteLater();
     }
 }
+
+
 
 QAudioDeviceInfo MainWindow::audioDeviceInfoByDeviceName(const QString &deviceName)
 {
