@@ -2,6 +2,7 @@ QT += gui widgets multimedia
 
 TEMPLATE = app
 CONFIG += c++17
+RESOURCES = res.qrc
 RC_ICONS = icon.ico
 
 # You can make your code fail to compile if it uses deprecated APIs.
@@ -9,6 +10,7 @@ RC_ICONS = icon.ico
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
+        eventfilter.cpp \
         main.cpp \
         mainwindow.cpp
 
@@ -21,4 +23,5 @@ FORMS += \
     mainwindow.ui
 
 HEADERS += \
+    eventfilter.h \
     mainwindow.h
