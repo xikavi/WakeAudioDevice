@@ -24,12 +24,13 @@ MainWindow::MainWindow(QWidget *parent) :
     }
 
     trayIcon = new QSystemTrayIcon(this);
+    QMenu* trayMenu = new QMenu(this);
+    trayMenu->addAction("Show", this, &MainWindow::showWindow);
+    trayMenu->addAction("Close", this, &MainWindow::close);
+    trayIcon->setContextMenu(trayMenu);
     connect(trayIcon, &QSystemTrayIcon::activated, this, [this](QSystemTrayIcon::ActivationReason reason) {
-        if (reason == QSystemTrayIcon::DoubleClick) {
-            show();
-            showNormal();
-            activateWindow();
-        }
+        if (reason == QSystemTrayIcon::DoubleClick)
+            showWindow();
     });
     setTrayIcon();
     trayIcon->show();
@@ -37,15 +38,13 @@ MainWindow::MainWindow(QWidget *parent) :
     // Timers
 
     timer = new QTimer(this);
-    connect(timer, &QTimer::timeout, this, &MainWindow::timerOnTimeout);
-    timer->setSingleShot(false);
+    timer->setSingleShot(true);
+    connect(timer, &QTimer::timeout, this, &MainWindow::playSound);
 
     QTimer* watcherTimer = new QTimer(this);
     watcherTimer->setSingleShot(false);
     connect(watcherTimer, &QTimer::timeout, this, [this]() {
         ui->label_timerTime->setText(QString::number(timer->remainingTime() / 1000));
-        if (mustPlaySound)
-            playSound();
     });
     watcherTimer->start(1000);
 
@@ -94,15 +93,10 @@ void MainWindow::on_pushButton_start_clicked()
     }
 }
 
-void MainWindow::hideEvent(QHideEvent *event)
-{
-    if (event->spontaneous() && isVisible())
-        hide();
-}
-
 void MainWindow::onSystemResumed()
 {
-    mustPlaySound = true;
+    if (started)
+        timer->start(0);
 }
 
 void MainWindow::setTrayIcon()
@@ -173,16 +167,10 @@ void MainWindow::startListening()
             }
             if (hasSound) {
                 timer->start(ui->doubleSpinBox_timerDurationSeconds->value() * 1000);
-                mustPlaySound = false;
             }
         });
     }
     setTrayIcon();
-}
-
-void MainWindow::timerOnTimeout()
-{
-    playSound();
 }
 
 void MainWindow::stopListening()
@@ -190,7 +178,6 @@ void MainWindow::stopListening()
     if (!started)
         return;
     started = false;
-    mustPlaySound = false;
     timer->stop();
     audioInput->stop();
     audioInput->deleteLater();
@@ -208,7 +195,8 @@ void MainWindow::playSound()
         if (file->open(QFile::ReadOnly)) {
             QAudioOutput* audio = new QAudioOutput(adi, adi.preferredFormat(), this);
             audio->setVolume(ui->doubleSpinBox_volume->value());
-            connect(audio, &QAudioOutput::stateChanged, this, [audio, file](QAudio::State state) {
+            connect(audio, &QAudioOutput::stateChanged, this, [this, audio, file](QAudio::State state) {
+//                qDebug() << "QAudioOutput::stateChanged " << state;
                 switch (state) {
                 case QAudio::IdleState:
                     audio->stop();
@@ -220,6 +208,8 @@ void MainWindow::playSound()
                     if (audio->error() != QAudio::NoError) {
                         qDebug () << "error " << audio->error();
                     }
+                    if (started && !timer->isActive())
+                        timer->start(0);
                     break;
                 default: ;
                 }
@@ -230,8 +220,6 @@ void MainWindow::playSound()
     }
 }
 
-
-
 QAudioDeviceInfo MainWindow::audioDeviceInfoByDeviceName(const QString &deviceName)
 {
     auto devices = QAudioDeviceInfo::availableDevices(QAudio::AudioOutput);
@@ -241,6 +229,19 @@ QAudioDeviceInfo MainWindow::audioDeviceInfoByDeviceName(const QString &deviceNa
             return info;
     }
     return QAudioDeviceInfo();
+}
+
+void MainWindow::showWindow()
+{
+    show();
+    showNormal();
+    activateWindow();
+}
+
+void MainWindow::hideEvent(QHideEvent *event)
+{
+    if (event->spontaneous() && isVisible())
+        hide();
 }
 
 MainWindow::~MainWindow()

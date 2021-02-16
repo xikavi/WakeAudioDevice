@@ -9,6 +9,7 @@
 #include <QTimer>
 #include <QSettings>
 #include <QSystemTrayIcon>
+#include <QMenu>
 #include <QHideEvent>
 
 namespace Ui {
@@ -38,22 +39,20 @@ private:
     QIODevice* audioInputDevice = nullptr;
     QTimer* timer = nullptr;
     QString outputSoundFileName;
-    bool mustPlaySound = false;
 
-    void timerOnTimeout();
     QAudioDeviceInfo audioDeviceInfoByDeviceName(const QString& deviceName);
 
     void startListening();
     void stopListening();
 
-    void playSound();
-
     void setTrayIcon();
-
 protected:
     void hideEvent(QHideEvent *event);
 public slots:
     void onSystemResumed();
+private slots:
+    void playSound();
+    void showWindow();
 };
 
 #endif // MAINWINDOW_H
