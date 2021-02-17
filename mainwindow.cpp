@@ -10,6 +10,8 @@ MainWindow::MainWindow(QWidget *parent) :
 
     ui->setupUi(this);
 
+    QFile::remove("log.txt");
+
     {
         auto devices = QAudioDeviceInfo::availableDevices(QAudio::AudioInput);
         for (const auto& info: devices) {
@@ -95,8 +97,9 @@ void MainWindow::on_pushButton_start_clicked()
 
 void MainWindow::onSystemResumed()
 {
+    FileDebug() << "System resumed";
     if (started)
-        timer->start(0);
+        playSound();
 }
 
 void MainWindow::setTrayIcon()
@@ -108,11 +111,13 @@ void MainWindow::startListening()
 {
     if (started)
         return;
+    FileDebug() << "Started";
     auto adi = audioDeviceInfoByDeviceName(ui->comboBox_audioDeviceListener->currentText());
     if (!adi.isNull()) {
 
         ui->pushButton_start->setText("Stop");
         started = true;
+        setTrayIcon();
 
         QAudioFormat format = inputAudioFormat;
 
@@ -124,23 +129,22 @@ void MainWindow::startListening()
         audioInput = new QAudioInput(adi, format, this);
 
         connect(audioInput, &QAudioInput::stateChanged, this, [this](QAudio::State state) {
-            QString stateStr;
-            QDebug(&stateStr) << state;
+            QString str;
+            QDebug(&str) << state;
             switch (state) {
             case QAudio::StoppedState:
                 if (audioInput->error() != QAudio::NoError) {
-                    QDebug(&stateStr) << " error " << audioInput->error();
+                    FileDebug() << "audio input error" << audioInput->error();
                 }
                 stopListening();
                 break;
             default: ;
             }
-            ui->label_listenerState->setText(stateStr);
+            ui->label_listenerState->setText(str);
         });
 
         audioInput->setBufferSize(100000);
         audioInputDevice = audioInput->start();
-        playSound();
 
         connect(audioInputDevice, &QIODevice::readyRead, this, [this]() {
             auto bytes = audioInputDevice->readAll();
@@ -160,7 +164,7 @@ void MainWindow::startListening()
                 auto volume = std::abs(a / max_sample_value_div2);
                 ui->label_listenerVolume->setText(QString::number(volume, 'f'));
                 if (volume > ui->doubleSpinBox_listenerVolumeThreshold->value()) {
-//                    qDebug() << "sound detected! " << a << volume;
+//                    FileDebug() << "sound detected:" << a << volume;
                     hasSound = true;
                     break;
                 }
@@ -169,14 +173,16 @@ void MainWindow::startListening()
                 timer->start(ui->doubleSpinBox_timerDurationSeconds->value() * 1000);
             }
         });
+
+        playSound();
     }
-    setTrayIcon();
 }
 
 void MainWindow::stopListening()
 {
     if (!started)
         return;
+    FileDebug() << "Stopped";
     started = false;
     timer->stop();
     audioInput->stop();
@@ -189,6 +195,7 @@ void MainWindow::stopListening()
 
 void MainWindow::playSound()
 {
+    FileDebug() << "Playing sound" << outputSoundFileName;
     auto adi = audioDeviceInfoByDeviceName(ui->comboBox_audioDeviceOutput->currentText());
     if (!adi.isNull()) {
         QFile* file = new QFile(outputSoundFileName);
@@ -196,7 +203,7 @@ void MainWindow::playSound()
             QAudioOutput* audio = new QAudioOutput(adi, adi.preferredFormat(), this);
             audio->setVolume(ui->doubleSpinBox_volume->value());
             connect(audio, &QAudioOutput::stateChanged, this, [this, audio, file](QAudio::State state) {
-//                qDebug() << "QAudioOutput::stateChanged " << state;
+                FileDebug() << "audio output state" << state;
                 switch (state) {
                 case QAudio::IdleState:
                     audio->stop();
@@ -206,7 +213,7 @@ void MainWindow::playSound()
                     break;
                 case QAudio::StoppedState:
                     if (audio->error() != QAudio::NoError) {
-                        qDebug () << "error " << audio->error();
+                        FileDebug() << "audio output error" << audio->error();
                     }
                     if (started && !timer->isActive())
                         timer->start(0);
