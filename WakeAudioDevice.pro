@@ -10,7 +10,9 @@ RC_ICONS = icon.ico
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
-        eventfilter.cpp \
+        audiodevice_win.cpp \
+        audiopeakmeter_win.cpp \
+        eventfilter_win.cpp \
         main.cpp \
         mainwindow.cpp
 
@@ -23,5 +25,13 @@ FORMS += \
     mainwindow.ui
 
 HEADERS += \
+    audiodevice.h \
+    audiopeakmeter_win.h \
+    def_win.h \
     eventfilter.h \
+    log.h \
     mainwindow.h
+
+INCLUDEPATH += include/
+
+windows: LIBS += -lOle32
