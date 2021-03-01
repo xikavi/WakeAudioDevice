@@ -4,7 +4,7 @@
 #include "audiodevice.h"
 
 MainWindow::MainWindow(QWidget *parent) :
-    QMainWindow(parent), ui(new Ui::MainWindow)
+    QMainWindow(parent, Qt::MSWindowsFixedSizeDialogHint), ui(new Ui::MainWindow)
 {
     // UI
 
@@ -47,6 +47,7 @@ MainWindow::MainWindow(QWidget *parent) :
         auto volume = peakMeter->getPeakValue();
         ui->label_listenerVolume->setText(QString::number(volume, 'f'));
         if (volume > ui->doubleSpinBox_listenerVolumeThreshold->value()) {
+//            FileDebug() << "detected sound " << volume;
             playSoundTimer->start(ui->doubleSpinBox_playSoundInterval->value() * 1000);
         }
     });
@@ -91,7 +92,7 @@ void MainWindow::onSystemResumed()
 {
     FileDebug() << "System resumed";
     if (started)
-        playSound();
+        playSoundTimer->start(0);
 }
 
 void MainWindow::setTrayIcon()
@@ -132,7 +133,7 @@ void MainWindow::stop()
 
 void MainWindow::playSound()
 {
-    FileDebug() << "Playing sound" << outputSoundFileName;
+//    FileDebug() << "Playing sound" << outputSoundFileName;
     auto adi = audioDeviceInfoByDeviceName(ui->comboBox_audioDeviceOutput->currentText());
     if (!adi.isNull()) {
         QFile* file = new QFile(outputSoundFileName);
@@ -140,7 +141,7 @@ void MainWindow::playSound()
             QAudioOutput* audio = new QAudioOutput(adi, adi.preferredFormat(), this);
             audio->setVolume(ui->doubleSpinBox_playSoundVolume->value());
             connect(audio, &QAudioOutput::stateChanged, this, [this, audio, file](QAudio::State state) {
-                FileDebug() << "audio output state" << state;
+//                FileDebug() << "audio output state" << state;
                 switch (state) {
                 case QAudio::IdleState:
                     audio->stop();
