@@ -3,11 +3,11 @@
 #include <QObject>
 #include <QAbstractNativeEventFilter>
 
-class WinEventFilter: public QObject, public QAbstractNativeEventFilter {
+class EventFilter: public QObject, public QAbstractNativeEventFilter {
     Q_OBJECT
 public:
-    WinEventFilter() : QObject() { }
-    virtual ~WinEventFilter() { }
+    EventFilter() : QObject() { }
+    virtual ~EventFilter() { }
 
     bool nativeEventFilter(const QByteArray &eventType, void *message, long *result);
 signals:
