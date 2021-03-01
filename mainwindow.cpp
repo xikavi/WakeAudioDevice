@@ -126,6 +126,7 @@ void MainWindow::stop()
     setTrayIcon();
     playSoundTimer->stop();
     peakMeterTimer->stop();
+    ui->label_listenerVolume->clear();
     ui->pushButton_start->setText("Start");
 }
 

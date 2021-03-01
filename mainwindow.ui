@@ -18,7 +18,7 @@
     <item>
      <widget class="QComboBox" name="comboBox_audioDeviceOutput">
       <property name="toolTip">
-       <string>Listener audio device</string>
+       <string>Audio device</string>
       </property>
      </widget>
     </item>
