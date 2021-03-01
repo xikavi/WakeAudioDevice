@@ -2,19 +2,18 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <QAudioDeviceInfo>
-#include <QAudioOutput>
-#include <QAudioInput>
 #include <QFile>
 #include <QTimer>
 #include <QSettings>
 #include <QSystemTrayIcon>
 #include <QMenu>
 #include <QHideEvent>
-#include <QTextStream>
-#include <QDateTime>
 #include <QDebug>
+#include <QAudioDeviceInfo>
+#include <QAudioOutput>
 #include <stdio.h>
+#include <cmath>
+#include "audiopeakmeter_win.h"
 
 namespace Ui {
 class MainWindow;
@@ -33,23 +32,24 @@ private slots:
 
 private:
     static constexpr const char* settingsFileName = "settings.ini";
+    static constexpr int peakMeterTimerInterval = 100;
 
     Ui::MainWindow *ui;
     QSystemTrayIcon* trayIcon = nullptr;
 
     bool started = false;
-    QAudioFormat inputAudioFormat;
-    QAudioInput* audioInput = nullptr;
-    QIODevice* audioInputDevice = nullptr;
-    QTimer* timer = nullptr;
+    QTimer* playSoundTimer = nullptr;
+    QTimer* peakMeterTimer = nullptr;
     QString outputSoundFileName;
 
-    QAudioDeviceInfo audioDeviceInfoByDeviceName(const QString& deviceName);
+    std::unique_ptr<AudioPeakMeter> peakMeter;
 
-    void startListening();
-    void stopListening();
+    void start();
+    void stop();
 
     void setTrayIcon();
+
+    QAudioDeviceInfo audioDeviceInfoByDeviceName(const QString &deviceName);
 protected:
     void hideEvent(QHideEvent *event);
 public slots:
@@ -57,21 +57,6 @@ public slots:
 private slots:
     void playSound();
     void showWindow();
-};
-
-class FileDebug: public QDebug {
-    QString logFileName;
-    QString str;
-public:
-    FileDebug(QString logFileName = "log.txt") : QDebug(&str), logFileName(logFileName) {}
-
-    virtual ~FileDebug() {
-        qt_message_output(QtDebugMsg, QMessageLogContext(), str);
-        if (QFile file(logFileName); file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
-            QTextStream (&file) << QDateTime::currentDateTime().toString("dd.MM.yyyy HH:mm:ss.zzz") << " " << str << Qt::endl;
-            file.close();
-        }
-    }
 };
 
 #endif // MAINWINDOW_H

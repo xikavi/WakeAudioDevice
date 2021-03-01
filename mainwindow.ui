@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>220</width>
-    <height>184</height>
+    <width>209</width>
+    <height>137</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,16 +16,9 @@
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout">
     <item>
-     <widget class="QComboBox" name="comboBox_audioDeviceListener">
-      <property name="toolTip">
-       <string>Listener audio device</string>
-      </property>
-     </widget>
-    </item>
-    <item>
      <widget class="QComboBox" name="comboBox_audioDeviceOutput">
       <property name="toolTip">
-       <string>Output audio device</string>
+       <string>Listener audio device</string>
       </property>
      </widget>
     </item>
@@ -51,9 +44,9 @@
        </widget>
       </item>
       <item>
-       <widget class="QDoubleSpinBox" name="doubleSpinBox_timerDurationSeconds">
+       <widget class="QDoubleSpinBox" name="doubleSpinBox_playSoundInterval">
         <property name="toolTip">
-         <string>Play sound timer duration (sec)</string>
+         <string>Play sound timer interval (sec)</string>
         </property>
         <property name="decimals">
          <number>3</number>
@@ -67,9 +60,9 @@
        </widget>
       </item>
       <item>
-       <widget class="QDoubleSpinBox" name="doubleSpinBox_volume">
+       <widget class="QDoubleSpinBox" name="doubleSpinBox_playSoundVolume">
         <property name="toolTip">
-         <string>Output sound volume</string>
+         <string>Play sound volume</string>
         </property>
         <property name="decimals">
          <number>3</number>
@@ -88,36 +81,6 @@
      </layout>
     </item>
     <item>
-     <layout class="QHBoxLayout" name="horizontalLayout_2">
-      <item>
-       <widget class="QLabel" name="label">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="text">
-         <string>Listener state:</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLabel" name="label_listenerState">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="text">
-         <string/>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </item>
-    <item>
      <layout class="QHBoxLayout" name="horizontalLayout_3">
       <item>
        <widget class="QLabel" name="label_2">
@@ -128,7 +91,7 @@
          </sizepolicy>
         </property>
         <property name="text">
-         <string>Listener volume:</string>
+         <string>Peak meter volume:</string>
         </property>
        </widget>
       </item>
