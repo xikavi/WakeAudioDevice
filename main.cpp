@@ -5,9 +5,10 @@
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
-    WinEventFilter nativeEventFilter;
+    EventFilter nativeEventFilter;
     a.installNativeEventFilter(&nativeEventFilter);
     MainWindow w;
-    QObject::connect(&nativeEventFilter, &WinEventFilter::systemResumed, &w, &MainWindow::onSystemResumed);
-    return a.exec();
+    QObject::connect(&nativeEventFilter, &EventFilter::systemResumed, &w, &MainWindow::onSystemResumed);
+    auto result = a.exec();
+    return result;
 }
