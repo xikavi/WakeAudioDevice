@@ -3,6 +3,8 @@
 #include <QDebug>
 #include <QFile>
 #include <QDateTime>
+#include <Windows.h>
+#include "audiorenderer_win.h"
 
 class FileDebug: public QDebug {
     QString logFileName;
@@ -18,5 +20,8 @@ public:
         }
     }
 };
+
+QString HResultToString(HRESULT hr);
+QDebug operator<<(QDebug debug, AudioRenderer::State state);
 
 #endif // LOG_H
