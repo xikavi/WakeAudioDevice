@@ -1,19 +1,19 @@
 #include "audiopeakmeter_win.h"
 #include "def_win.h"
 
-AudioPeakMeter::AudioPeakMeter(const QString &audioDeviceId)
+AudioPeakMeter::AudioPeakMeter(const QString &audioDeviceId, QObject *parent) : QObject(parent)
 {
     HRESULT hr;
-    IMMDeviceEnumerator *pEnumerator = NULL;
-    IMMDevice *pDevice = NULL;
+    IMMDeviceEnumerator *pEnumerator = nullptr;
+    IMMDevice *pDevice = nullptr;
 
-    hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), NULL, CLSCTX_INPROC_SERVER, __uuidof(IMMDeviceEnumerator), (void**)&pEnumerator);
+    hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_INPROC_SERVER, __uuidof(IMMDeviceEnumerator), (void**)&pEnumerator);
     EXIT_ON_ERROR(hr);
 
     hr = pEnumerator->GetDevice(audioDeviceId.toStdWString().c_str(), &pDevice);
     EXIT_ON_ERROR(hr);
 
-    hr = pDevice->Activate(__uuidof(IAudioMeterInformation), CLSCTX_ALL, NULL, (void**)&pMeterInfo);
+    hr = pDevice->Activate(__uuidof(IAudioMeterInformation), CLSCTX_ALL, nullptr, (void**)&pMeterInfo);
     EXIT_ON_ERROR(hr);
 
 Exit:
@@ -23,20 +23,19 @@ Exit:
 
 float AudioPeakMeter::getPeakValue() const
 {
-    if (!isValid())
-        return 0;
     HRESULT hr;
     float peak = 0;
-    hr = pMeterInfo->GetPeakValue(&peak);
-    if (FAILED(hr)) {
-        FileDebug() << "GetPeakValue error " << hr;
+    if (isValid()) {
+        hr = pMeterInfo->GetPeakValue(&peak);
+        EXIT_ON_ERROR(hr);
     }
+Exit:
     return peak;
 }
 
 bool AudioPeakMeter::isValid() const
 {
-    return pMeterInfo != NULL;
+    return pMeterInfo != nullptr;
 }
 
 AudioPeakMeter::~AudioPeakMeter()

@@ -5,16 +5,16 @@
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
 
-class AudioPeakMeter
+class AudioPeakMeter : public QObject
 {
 public:
-    AudioPeakMeter(const QString& audioDeviceId);
+    AudioPeakMeter(const QString& audioDeviceId, QObject *parent = nullptr);
     ~AudioPeakMeter();
 
     float getPeakValue() const;
     bool isValid() const;
 private:
-    IAudioMeterInformation *pMeterInfo = NULL;
+    IAudioMeterInformation *pMeterInfo = nullptr;
 };
 
 #endif // AUDIOPEAKMETER_WIN_H

@@ -8,15 +8,15 @@ QList<AudioDevice> AudioDevice::list()
 {
     QList<AudioDevice> result;
     HRESULT hr;
-    IMMDeviceEnumerator *pEnumerator = NULL;
-    IMMDeviceCollection *pCollection = NULL;
-    IMMDevice *pDevice = NULL;
-    IMMEndpoint *pEndpoint = NULL;
-    IPropertyStore *pProps = NULL;
-    LPWSTR pwszID = NULL;
+    IMMDeviceEnumerator *pEnumerator = nullptr;
+    IMMDeviceCollection *pCollection = nullptr;
+    IMMDevice *pDevice = nullptr;
+    IMMEndpoint *pEndpoint = nullptr;
+    IPropertyStore *pProps = nullptr;
+    LPWSTR pwszID = nullptr;
 
     // Get enumerator for audio endpoint devices.
-    hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), NULL, CLSCTX_INPROC_SERVER, __uuidof(IMMDeviceEnumerator), (void**)&pEnumerator);
+    hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_INPROC_SERVER, __uuidof(IMMDeviceEnumerator), (void**)&pEnumerator);
     EXIT_ON_ERROR(hr);
 
     hr = pEnumerator->EnumAudioEndpoints(eAll, DEVICE_STATE_ACTIVE, &pCollection);
@@ -57,7 +57,7 @@ QList<AudioDevice> AudioDevice::list()
         result.append({dataFlow == eRender ? Mode::Output : Mode::Input, QString::fromWCharArray(pwszID), QString::fromWCharArray(varName.pwszVal)});
 
         CoTaskMemFree(pwszID);
-        pwszID = NULL;
+        pwszID = nullptr;
         PropVariantClear(&varName);
         SAFE_RELEASE(pDevice);
         SAFE_RELEASE(pProps);
