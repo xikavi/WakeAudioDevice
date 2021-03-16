@@ -10,7 +10,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
     ui->setupUi(this);
 
-    for (const auto& device: AudioDevice::list()) {
+    for (auto&& device: AudioDevice::list()) {
         if (device.mode() == AudioDevice::Mode::Output)
             ui->comboBox_audioDeviceOutput->addItem(device.friendlyName(), device.id());
     }
@@ -44,10 +44,10 @@ MainWindow::MainWindow(QWidget *parent) :
     peakMeterTimer->setSingleShot(false);
     peakMeterTimer->setInterval(peakMeterTimerInterval);
     connect(peakMeterTimer, &QTimer::timeout, this, [this]() {
-        auto volume = peakMeter->getPeakValue();
+        auto volume = audioPeakMeter->getPeakValue();
         ui->label_listenerVolume->setText(QString::number(volume, 'f'));
         if (volume > ui->doubleSpinBox_listenerVolumeThreshold->value()) {
-//            FileDebug() << "detected sound " << volume;
+//            FileDebug() << "peak volume " << volume;
             playSoundTimer->start(ui->doubleSpinBox_playSoundInterval->value() * 1000);
         }
     });
@@ -80,7 +80,6 @@ MainWindow::MainWindow(QWidget *parent) :
         show();
     if (args.indexOf("start") > -1)
         start();
-
 }
 
 void MainWindow::on_pushButton_start_clicked()
@@ -104,75 +103,56 @@ void MainWindow::start()
 {
     if (started)
         return;
+
     auto id = ui->comboBox_audioDeviceOutput->currentData().toString();
     if (id.isEmpty())
         return;
-    peakMeter = std::make_unique<AudioPeakMeter>(id);
-    if (!peakMeter->isValid())
+
+    audioRenderer = new AudioRenderer(outputSoundFileName, ui->comboBox_audioDeviceOutput->currentData().toString(), this);
+    connect(audioRenderer, &AudioRenderer::stateChanged, this, &MainWindow::onAudioRendererStateChanged);
+
+    audioDeviceVolumeControl = new AudioDeviceVolumeControl(ui->comboBox_audioDeviceOutput->currentData().toString(), this);
+
+    audioPeakMeter = new AudioPeakMeter(ui->comboBox_audioDeviceOutput->currentData().toString(), this);
+    if (!audioPeakMeter->isValid())
         return;
+    peakMeterTimer->start();
+
     started = true;
+    FileDebug() << "Started";
+
     setTrayIcon();
     ui->pushButton_start->setText("Stop");
-    peakMeterTimer->start();
+    ui->comboBox_audioDeviceOutput->setEnabled(false);
+
     playSound();
-    FileDebug() << "Started";
 }
 
 void MainWindow::stop()
 {
     if (!started)
         return;
-    FileDebug() << "Stopped";
+
     started = false;
+    FileDebug() << "Stopped";
+
+    QOBJECT_SAFE_DELETE(audioRenderer);
+    QOBJECT_SAFE_DELETE(audioDeviceVolumeControl);
+    QOBJECT_SAFE_DELETE(audioPeakMeter);
+
     setTrayIcon();
     playSoundTimer->stop();
     peakMeterTimer->stop();
     ui->label_listenerVolume->clear();
     ui->pushButton_start->setText("Start");
+    ui->comboBox_audioDeviceOutput->setEnabled(true);
 }
 
 void MainWindow::playSound()
 {
-//    FileDebug() << "Playing sound" << outputSoundFileName;
-    auto adi = audioDeviceInfoByDeviceName(ui->comboBox_audioDeviceOutput->currentText());
-    if (!adi.isNull()) {
-        QFile* file = new QFile(outputSoundFileName);
-        if (file->open(QFile::ReadOnly)) {
-            QAudioOutput* audio = new QAudioOutput(adi, adi.preferredFormat(), this);
-            audio->setVolume(ui->doubleSpinBox_playSoundVolume->value());
-            connect(audio, &QAudioOutput::stateChanged, this, [this, audio, file](QAudio::State state) {
-//                FileDebug() << "audio output state" << state;
-                switch (state) {
-                case QAudio::IdleState:
-                    audio->stop();
-                    file->close();
-                    audio->deleteLater();
-                    file->deleteLater();
-                    break;
-                case QAudio::StoppedState:
-                    if (audio->error() != QAudio::NoError) {
-                        FileDebug() << "audio output error" << audio->error();
-                    }
-                    if (started && !playSoundTimer->isActive())
-                        playSoundTimer->start(0);
-                    break;
-                default: ;
-                }
-            });
-            audio->start(file);
-        } else
-            file->deleteLater();
-    }
-}
-
-QAudioDeviceInfo MainWindow::audioDeviceInfoByDeviceName(const QString &deviceName)
-{
-    auto devices = QAudioDeviceInfo::availableDevices(QAudio::AudioOutput);
-    for (const auto& info: devices) {
-        if (info.deviceName() == deviceName)
-            return info;
-    }
-    return QAudioDeviceInfo();
+    if (!audioRenderer)
+        return;
+    audioRenderer->play(ui->doubleSpinBox_playSoundVolume->value());
 }
 
 void MainWindow::showWindow()
@@ -180,6 +160,22 @@ void MainWindow::showWindow()
     show();
     showNormal();
     activateWindow();
+}
+
+void MainWindow::onAudioRendererStateChanged(AudioRenderer::State state)
+{
+//    FileDebug() << "onAudioRendererStateChanged " << state;
+    if (!audioDeviceVolumeControl)
+        return;
+    if (state == AudioRenderer::State::Playing) {
+        prevAudioMasterVolume = audioDeviceVolumeControl->getMasterVolumeLevelScalar();
+        audioDeviceVolumeControl->setMasterVolumeLevelScalar(1);
+    } else if (state == AudioRenderer::State::Stopped) {
+        if (prevAudioMasterVolume)
+            audioDeviceVolumeControl->setMasterVolumeLevelScalar(*prevAudioMasterVolume);
+        if (!playSoundTimer->isActive())
+            playSoundTimer->start(0);
+    }
 }
 
 void MainWindow::hideEvent(QHideEvent *event)
