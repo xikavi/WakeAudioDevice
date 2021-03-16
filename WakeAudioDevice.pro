@@ -1,4 +1,4 @@
-QT += gui widgets multimedia
+QT += gui widgets
 
 TEMPLATE = app
 CONFIG += c++17
@@ -11,8 +11,11 @@ RC_ICONS = icon.ico
 
 SOURCES += \
         audiodevice_win.cpp \
+        audiodevicevolumecontrol_win.cpp \
         audiopeakmeter_win.cpp \
+        audiorenderer_win.cpp \
         eventfilter_win.cpp \
+        log.cpp \
         main.cpp \
         mainwindow.cpp
 
@@ -26,7 +29,9 @@ FORMS += \
 
 HEADERS += \
     audiodevice.h \
+    audiodevicevolumecontrol_win.h \
     audiopeakmeter_win.h \
+    audiorenderer_win.h \
     def_win.h \
     eventfilter.h \
     log.h \
@@ -34,4 +39,8 @@ HEADERS += \
 
 INCLUDEPATH += include/
 
-windows: LIBS += -lOle32
+win32: LIBS += -L$$PWD/lib/x64 -lOle32 -lMfplat -lMfreadwrite
+
+VERSION = 1.0.0.0
+QMAKE_TARGET_COPYRIGHT = Xikavi
+QMAKE_TARGET_COMPANY = Xikavi Soft
