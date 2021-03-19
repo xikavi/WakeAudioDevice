@@ -21,7 +21,7 @@ QString HResultToString(HRESULT hr) {
 
     if ( nullptr != errorText )
     {
-        str = QString::fromWCharArray(errorText);
+        str = QString::fromWCharArray(errorText).trimmed();
         // release memory allocated by FormatMessage()
         LocalFree(errorText);
         errorText = nullptr;
@@ -41,4 +41,13 @@ QDebug operator<<(QDebug debug, AudioRenderer::State state)
         break;
     }
     return debug;
+}
+
+FileDebug::~FileDebug() {
+    str = str.trimmed();
+    qt_message_output(QtDebugMsg, QMessageLogContext(), str);
+    if (QFile file(logFileName); file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+        QTextStream (&file) << QDateTime::currentDateTime().toString("dd.MM.yyyy HH:mm:ss.zzz") << " " << str << Qt::endl;
+        file.close();
+    }
 }
