@@ -9,6 +9,8 @@
 #include <QMenu>
 #include <QHideEvent>
 #include <QDebug>
+#include <QMessageBox>
+#include <QFileInfo>
 #include <stdio.h>
 #include <cmath>
 #include "audiopeakmeter_win.h"

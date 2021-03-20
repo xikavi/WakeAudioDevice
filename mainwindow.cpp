@@ -68,7 +68,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->doubleSpinBox_listenerVolumeThreshold->setValue(settings.value("ListenerVolumeThreshold", ui->doubleSpinBox_listenerVolumeThreshold->value()).toDouble());
 
     outputSoundFileName = settings.value("PlaySoundFileName", "sound.wav").toString();
-    ui->doubleSpinBox_playSoundInterval->setValue(settings.value("PlaySoundInterval", ui->doubleSpinBox_playSoundInterval->value()).toDouble()); // 00:11:20
+    ui->doubleSpinBox_playSoundInterval->setValue(settings.value("PlaySoundInterval", ui->doubleSpinBox_playSoundInterval->value()).toDouble());
     ui->doubleSpinBox_playSoundVolume->setValue(settings.value("PlaySoundVolume", ui->doubleSpinBox_playSoundVolume->value()).toDouble());
 
     // Args check
@@ -108,14 +108,18 @@ void MainWindow::start()
     if (id.isEmpty())
         return;
 
+    QFileInfo fileInfo (outputSoundFileName);
+    if (!fileInfo.exists()) {
+        QMessageBox::warning(this, "File not found", "File \"" + fileInfo.absoluteFilePath() + "\" not found.");
+        return;
+    }
+
     audioRenderer = new AudioRenderer(outputSoundFileName, ui->comboBox_audioDeviceOutput->currentData().toString(), this);
     connect(audioRenderer, &AudioRenderer::stateChanged, this, &MainWindow::onAudioRendererStateChanged);
 
     audioDeviceVolumeControl = new AudioDeviceVolumeControl(ui->comboBox_audioDeviceOutput->currentData().toString(), this);
 
     audioPeakMeter = new AudioPeakMeter(ui->comboBox_audioDeviceOutput->currentData().toString(), this);
-    if (!audioPeakMeter->isValid())
-        return;
     peakMeterTimer->start();
 
     started = true;
@@ -192,5 +196,6 @@ MainWindow::~MainWindow()
     settings.setValue("ListenerVolumeThreshold", ui->doubleSpinBox_listenerVolumeThreshold->value());
     settings.setValue("PlaySoundInterval", ui->doubleSpinBox_playSoundInterval->value());
     settings.setValue("PlaySoundVolume", ui->doubleSpinBox_playSoundVolume->value());
+    settings.setValue("PlaySoundFileName", outputSoundFileName);
     delete ui;
 }
