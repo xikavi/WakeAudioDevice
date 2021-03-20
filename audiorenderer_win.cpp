@@ -1,51 +1,30 @@
 #include "audiorenderer_win.h"
 #include "def_win.h"
 
-AudioRenderer::AudioRenderer(const QString &fileName, const QString &deviceId, QObject *parent) : QObject(parent), timer(new QTimer(this))
+AudioRenderer::AudioRenderer(const QString &fileName, const QString &audioDeviceId, QObject *parent) : QObject(parent), timer(new QTimer(this)), audioDeviceId(audioDeviceId)
 {
     HRESULT hr;
-    IMMDeviceEnumerator *pEnumerator = nullptr;
-    IMMDevice *pDevice = nullptr;
+
     IMFSourceReader *pReader = nullptr;
     IMFMediaType *pType = nullptr;
     IMFSample *pSample = nullptr;
     IMFMediaBuffer *pBuffer = nullptr;
     BYTE *pAudioData = nullptr;
     DWORD cbBuffer = 0;
-    REFERENCE_TIME hnsRequestedDuration = REFTIMES_PER_SEC;
 
     connect(timer, &QTimer::timeout, this, &AudioRenderer::onTimerTimeout);
     timer->setSingleShot(false);
 
-    // Setup audio client
+    // Get audio client mix format
 
-    hr = CoCreateInstance(CLSID_MMDeviceEnumerator, nullptr, CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**)&pEnumerator);
-    EXIT_ON_ERROR(hr);
-
-    hr = pEnumerator->GetDevice(deviceId.toStdWString().c_str(), &pDevice);
-    EXIT_ON_ERROR(hr);
-
-    hr = pDevice->Activate(IID_IAudioClient, CLSCTX_ALL, nullptr, (void**)&pAudioClient);
-    EXIT_ON_ERROR(hr);
+    if (!activateAudioClient())
+        return;
 
     hr = pAudioClient->GetMixFormat(&pwfx);
     EXIT_ON_ERROR(hr);
 
     pwfx->wFormatTag = WAVE_FORMAT_PCM;
     pwfx->cbSize = 0;
-
-    hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_SESSIONFLAGS_DISPLAY_HIDE, hnsRequestedDuration, 0, pwfx, nullptr);
-    EXIT_ON_ERROR(hr);
-
-    hr = pAudioClient->GetService(IID_IAudioRenderClient, (void**)&pRenderClient);
-    EXIT_ON_ERROR(hr);
-
-    // Get the size of the audio endpoint buffer.
-    hr = pAudioClient->GetBufferSize(&numBufferFrames);
-    EXIT_ON_ERROR(hr);
-
-    // Setting update buffer timer interval to half of buffer duration
-    timer->setInterval(500 * numBufferFrames / pwfx->nSamplesPerSec);
 
     // Setup decoder
 
@@ -150,40 +129,85 @@ AudioRenderer::AudioRenderer(const QString &fileName, const QString &deviceId, Q
     EXIT_ON_ERROR(hr);
 
 Exit:
-    SAFE_RELEASE(pEnumerator);
-    SAFE_RELEASE(pDevice);
     SAFE_RELEASE(pType);
     SAFE_RELEASE(pReader);
     SAFE_RELEASE(pSample);
     SAFE_RELEASE(pBuffer);
+    SAFE_RELEASE(pAudioClient);
+}
+
+bool AudioRenderer::activateAudioClient()
+{
+    HRESULT hr;
+    IMMDeviceEnumerator *pEnumerator = nullptr;
+    IMMDevice *pDevice = nullptr;
+
+    hr = CoCreateInstance(CLSID_MMDeviceEnumerator, nullptr, CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**)&pEnumerator);
+    EXIT_ON_ERROR(hr);
+
+    hr = pEnumerator->GetDevice(audioDeviceId.toStdWString().c_str(), &pDevice);
+    EXIT_ON_ERROR(hr);
+
+    SAFE_RELEASE(pAudioClient);
+
+    hr = pDevice->Activate(IID_IAudioClient, CLSCTX_ALL, nullptr, (void**)&pAudioClient);
+    EXIT_ON_ERROR(hr);
+
+Exit:
+    SAFE_RELEASE(pEnumerator);
+    SAFE_RELEASE(pDevice);
+    return !FAILED(hr);
 }
 
 // Starts to play audio data
-void AudioRenderer::play(float volume)
+bool AudioRenderer::play(float volume)
 {
     HRESULT hr;
     ISimpleAudioVolume *pSimpleAudioVolume = nullptr;
+    REFERENCE_TIME hnsRequestedDuration = REFTIMES_PER_SEC; // 1 sec buffer
 
     stop();
 
-    cbPosition = 0;
+    posAllAudioData = 0;
+
+    if (!activateAudioClient())
+        return false;
+
+    hr = pAudioClient->Initialize(AUDCLNT_SHAREMODE_SHARED, AUDCLNT_SESSIONFLAGS_DISPLAY_HIDE, hnsRequestedDuration, 0, pwfx, nullptr);
+    EXIT_ON_ERROR(hr);
+
+    hr = pAudioClient->GetService(IID_ISimpleAudioVolume, (void**)&pSimpleAudioVolume);
+    EXIT_ON_ERROR(hr);
+
+    hr = pSimpleAudioVolume->SetMasterVolume(volume, nullptr);
+    EXIT_ON_ERROR(hr);
+
+    // Get the size of the audio endpoint buffer.
+    hr = pAudioClient->GetBufferSize(&numBufferFrames);
+    EXIT_ON_ERROR(hr);
+
+    // Setting update buffer timer interval to half of buffer duration
+    timer->setInterval(500 * numBufferFrames / pwfx->nSamplesPerSec);
+
+    hr = pAudioClient->GetService(IID_IAudioRenderClient, (void**)&pRenderClient);
+    EXIT_ON_ERROR(hr);
 
     if (updateBuffer()) {
-        hr = pAudioClient->GetService(IID_ISimpleAudioVolume, (void**)&pSimpleAudioVolume);
-        EXIT_ON_ERROR(hr);
-
-        hr = pSimpleAudioVolume->SetMasterVolume(volume, nullptr);
-        EXIT_ON_ERROR(hr);
-
         hr = pAudioClient->Start();
         EXIT_ON_ERROR(hr);
 
         setState(State::Playing);
         timer->start();
+
+        SAFE_RELEASE(pSimpleAudioVolume);
+        return true;
     }
 
 Exit:
     SAFE_RELEASE(pSimpleAudioVolume);
+    SAFE_RELEASE(pRenderClient);
+    SAFE_RELEASE(pAudioClient);
+    return false;
 }
 
 // Updates OS Audio buffer with new portion of data
@@ -197,17 +221,17 @@ bool AudioRenderer::updateBuffer()
     UINT32 numFramesRequested;
     UINT32 numFramesToProcess;
 
-    hr = pAudioClient->GetCurrentPadding(&numFramesPadding);
+    hr = pAudioClient->GetCurrentPadding(&numFramesPadding); //AUDCLNT_E_DEVICE_INVALIDATED
     EXIT_ON_ERROR(hr);
 
     numFramesAvailable = numBufferFrames - numFramesPadding;
-    numFramesToProcess = (cbAllAudioData - cbPosition) / pwfx->nBlockAlign;
+    numFramesToProcess = (cbAllAudioData - posAllAudioData) / pwfx->nBlockAlign;
     numFramesRequested = std::min(numFramesAvailable, numFramesToProcess);
 
     if (numFramesRequested <= 0)
         return true;
 
-    src = pAllAudioData + cbPosition;
+    src = pAllAudioData + posAllAudioData;
     cbCopy = numFramesRequested * pwfx->nBlockAlign;
 
     qDebug() << " numFramesPadding " << numFramesPadding << " numFramesAvailable " << numFramesAvailable << " numFramesRequested " << numFramesRequested;
@@ -221,7 +245,7 @@ bool AudioRenderer::updateBuffer()
     hr = pRenderClient->ReleaseBuffer(numFramesRequested, 0);
     EXIT_ON_ERROR(hr);
 
-    cbPosition += cbCopy;
+    posAllAudioData += cbCopy;
     if (allDataProcessed()) {
         // Wait for all data in buffer to be played and then stop renderer by timer
         timer->start(1000 * (numFramesPadding + numFramesRequested) / pwfx->nSamplesPerSec);
@@ -248,7 +272,12 @@ void AudioRenderer::stop()
     setState(State::Stopped);
     qDebug() << "AudioRenderer stopped";
     timer->stop();
-    pAudioClient->Stop();
+
+    if (pAudioClient)
+        pAudioClient->Stop();
+
+    SAFE_RELEASE(pRenderClient);
+    SAFE_RELEASE(pAudioClient);
 }
 
 void AudioRenderer::setState(AudioRenderer::State state)
@@ -260,9 +289,6 @@ void AudioRenderer::setState(AudioRenderer::State state)
 AudioRenderer::~AudioRenderer()
 {
     stop();
-    if (pAllAudioData)
-        std::free(pAllAudioData);
+    std::free(pAllAudioData);
     CoTaskMemFree(pwfx);
-    SAFE_RELEASE(pRenderClient);
-    SAFE_RELEASE(pAudioClient);
 }

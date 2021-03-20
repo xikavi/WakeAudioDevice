@@ -25,28 +25,30 @@ public:
     inline static const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
     inline static const IID IID_ISimpleAudioVolume = __uuidof(ISimpleAudioVolume);
 
-    AudioRenderer(const QString& fileName, const QString& deviceId, QObject *parent = nullptr);
+    AudioRenderer(const QString& fileName, const QString& audioDeviceId, QObject *parent = nullptr);
     ~AudioRenderer();
 
-    void play(float volume = 1);
+    bool play(float volume = 1);
     void stop();
 private:
     State state = State::Stopped;
     QTimer* timer = nullptr;
+    QString audioDeviceId;
 
-    WAVEFORMATEX *pwfx;
+    WAVEFORMATEX *pwfx = nullptr;
     IAudioClient *pAudioClient = nullptr;
     IAudioRenderClient *pRenderClient = nullptr;
     UINT32 numBufferFrames = 0;
 
     BYTE *pAllAudioData = nullptr;
     DWORD cbAllAudioData = 0;
-    DWORD cbPosition = 0;
+    DWORD posAllAudioData = 0;
 
-    bool allDataProcessed() const { return cbPosition >= cbAllAudioData; }
-
-    void setState(State state);
+    bool activateAudioClient();
     bool updateBuffer();
+
+    bool allDataProcessed() const { return posAllAudioData >= cbAllAudioData; }
+    void setState(State state);
 private slots:
     void onTimerTimeout();
 signals:
