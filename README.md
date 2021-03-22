@@ -1,4 +1,4 @@
-# WakeAudioDevice 1.0.0.0
+# WakeAudioDevice 1.1
 
 Small utility that prevents audio devices turning off after some time from last sound was played.  
 Utility plays sound file (sound.wav in the workdir by default) on timer, starting after peak meter detected sound volume that exceeded threshold value.
