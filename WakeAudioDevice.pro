@@ -41,6 +41,6 @@ INCLUDEPATH += include/
 
 win32: LIBS += -L$$PWD/lib/x64 -lOle32 -lMfplat -lMfreadwrite
 
-VERSION = 1.0.0.0
+VERSION = 1.1.0.0
 QMAKE_TARGET_COPYRIGHT = Xikavi
 QMAKE_TARGET_COMPANY = Xikavi Soft
