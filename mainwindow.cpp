@@ -89,7 +89,7 @@ void MainWindow::on_pushButton_start_clicked()
 
 void MainWindow::onSystemResumed()
 {
-    FileDebug() << "System resumed";
+    FileDebug() << "System resumed. Timer remaining time " << playSoundTimer->remainingTime();
     if (started)
         playSoundTimer->start(0);
 }
@@ -156,6 +156,7 @@ void MainWindow::playSound()
 {
     if (!audioRenderer)
         return;
+    FileDebug() << "Playing sound";
     audioRenderer->play(ui->doubleSpinBox_playSoundVolume->value());
 }
 
@@ -168,7 +169,7 @@ void MainWindow::showWindow()
 
 void MainWindow::onAudioRendererStateChanged(AudioRenderer::State state)
 {
-//    FileDebug() << "onAudioRendererStateChanged " << state;
+    FileDebug() << "Renderer state changed to " << state;
     if (!audioDeviceVolumeControl)
         return;
     if (state == AudioRenderer::State::Playing) {
@@ -177,6 +178,7 @@ void MainWindow::onAudioRendererStateChanged(AudioRenderer::State state)
     } else if (state == AudioRenderer::State::Stopped) {
         if (prevAudioMasterVolume)
             audioDeviceVolumeControl->setMasterVolumeLevelScalar(*prevAudioMasterVolume);
+    } else if (state == AudioRenderer::State::Finished) {
         if (!playSoundTimer->isActive())
             playSoundTimer->start(0);
     }
