@@ -16,7 +16,7 @@ class AudioRenderer : public QObject
 {
     Q_OBJECT
 public:
-    enum class State { Stopped, Playing };
+    enum class State { Stopped, Playing, Finished };
 
     static constexpr int REFTIMES_PER_SEC = 10000000;
     inline static const CLSID CLSID_MMDeviceEnumerator = __uuidof(MMDeviceEnumerator);

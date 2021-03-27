@@ -39,6 +39,9 @@ QDebug operator<<(QDebug debug, AudioRenderer::State state)
     case AudioRenderer::State::Playing:
         debug.nospace() << "Playing";
         break;
+    case AudioRenderer::State::Finished:
+        debug.nospace() << "Finished";
+        break;
     }
     return debug;
 }

@@ -260,6 +260,9 @@ bool AudioRenderer::updateBuffer()
 
 void AudioRenderer::onTimerTimeout()
 {
+    if (allDataProcessed() && state == State::Playing) {
+        setState(State::Finished);
+    }
     if (allDataProcessed() || !updateBuffer())
         stop();
 }
