@@ -4,7 +4,7 @@ Small utility that prevents audio devices turning off after some time from last 
 Utility plays sound file (sound.wav in the workdir by default) on timer, starting after peak meter detected sound volume that exceeded threshold value.
 Also sound is playing after system was resumed from low-power state.  
 
-Media Foundation library from Windows SDK is used to read and decode audio files (path to audio file can be set by 'PlaySoundFileName' option in settings.ini, for example PlaySoundFileName=C:\\Windows\\Media\\Speech Off.wav), so app should support audio formats listed here: https://docs.microsoft.com/en-us/windows/win32/medfound/supported-media-formats-in-media-foundation  
+Media Foundation library from Windows SDK is used to read and decode audio files (path to audio file can be set by 'PlaySoundFileName' option in settings.ini, for example PlaySoundFileName=C:\\\Windows\\\Media\\\Speech Off.wav), so app should support audio formats listed here: https://docs.microsoft.com/en-us/windows/win32/medfound/supported-media-formats-in-media-foundation  
 WASAPI is used for audio playback and EndpointVolume API to monitor and control volume level.
 
 'Play sound volume' setting sets absolute audio device volume and ignores your device master volume level (that you see in Sndvol.exe and when clicking on audio icon in tray). It means for example, even if you set device volume manually to 10% and volume in app is set to 1.0, sound will be played at 100% of endpoint device volume level anyway.
